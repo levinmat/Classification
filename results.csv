@@ -1,0 +1,16 @@
+Time,Method,InputFolder,NumFolds,RandomSeed,Score
+Fri Feb 16 16:22:51 2018,svm,test,5,101,100.0
+Fri Feb 16 16:48:19 2018,svm,test,5,101,100.0
+Fri Feb 16 16:48:29 2018,svm,test,5,101,100.0
+Fri Feb 16 16:49:15 2018,svm,test,5,101,100.0
+Fri Feb 16 16:52:31 2018,svm,test,5,101,100.0
+Fri Feb 16 16:55:53 2018,mlp,test,5,101,100.0
+Fri Feb 16 16:56:00 2018,gnb,test,5,101,100.0
+Fri Feb 16 16:56:04 2018,bnb,test,5,101,100.0
+Fri Feb 16 17:15:40 2018,svm,test,5,101,100.0
+Fri Feb 16 17:17:34 2018,svm,test,5,101,96.666666666666657
+Fri Feb 16 17:18:53 2018,svm,test,5,101,93.333333333333329
+Fri Feb 16 17:19:06 2018,svm,test,5,101,93.333333333333329
+Fri Feb 16 17:37:12 2018,dt,test,5,101,93.3333333333
+Fri Feb 16 17:37:17 2018,knn,test,5,101,93.3333333333
+Fri Feb 16 17:41:37 2018,svm,test,5,101,93.333333333333329

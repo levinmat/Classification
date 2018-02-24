@@ -7,8 +7,11 @@ classification methods. Designed for use with the ROC-HCI deception dataset.
 Author: Matt Levin
 
 Usage: 
-   python3 clf.py [-m Method] [-i InputFolder] [-k NumberFolds] [-d NumberClusters] [-s RandomSeed]
-
+    python3 clf.py [-m Method] [-i InputFolder] [-k NumberFolds] [-d NumberClusters] [-s RandomSeed]
+         Run with specified method and parameters.
+    python3 clf.py --all_methods [-i InputFolder] [-k NumberFolds] [-d NumberClusters] [-s RandomSeed]
+         Run with each available method and specified parameters.
+         
 Valid Method Options:
     SVM - uses sklearn.svm.SVC as the classifier      (Support Vector Machine Classifier)
     MLP - uses sklearn.neural_network.MLPClassifier   (Multilayer Perceptron Classifier)
@@ -18,7 +21,7 @@ Valid Method Options:
     KNN - uses sklearn.neighbors.KNeighborsClassifier (K-Nearest Neighbors Classifier)
     
 Ex:
-   python3 clf.py -m MLP -i test -k 10 -s 9999
+   python3 clf.py -m SVM -i test -k 10 -s 9999
    
 """
 
@@ -45,8 +48,8 @@ def load_data(inputfolder, num_clusters):
     # y = 0/1 for Truther/Bluffer 
     X, y = [], []
     
-    if 'input/' not in inputfolder:
-        inputfolder = 'input/' + inputfolder
+    if 'test' == inputfolder:
+        inputfolder = 'input/test'
     
     # Truthers (y = 0)
     for filename in glob.glob(inputfolder + '/truthers/*'):
@@ -72,48 +75,66 @@ def load_data(inputfolder, num_clusters):
    
                              
 """ Returns a classifier object for the given method """
-def create_classifier(method, seed):
+def create_classifier(method):
     if method == 'svm':
-        return SVC(random_state=seed)
+        return SVC()
     if method == 'mlp':
-        # Could use some fine-tuning on the layer sizes - lbfgs/relu seems to work well
-        return MLPClassifier(hidden_layer_sizes=(50,100,75), 
-                            solver='lbfgs', activation="relu",
-                            max_iter=2000, tol=1e-4, alpha=0.0001, 
-                            shuffle=True, random_state=seed)
+        return MLPClassifier(hidden_layer_sizes=(100,), 
+                            solver='adam', activation='relu',
+                            max_iter=3000, tol=1e-4, alpha=0.0001, 
+                            shuffle=True)
     if method == 'gnb':
         return GaussianNB()
     if method == 'bnb':
         return BernoulliNB()
     if method == 'dt':
-        return DecisionTreeClassifier(random_state=seed)
+        return DecisionTreeClassifier()
     if method == 'knn':
         return KNeighborsClassifier()
 
-    raise RuntimeError('Invalid method argument\n\tOptions = (SVM|GNB|BNB|MLP|DT|KNN)' +
-                       '\n\tUse -h or --help flags to show proper usage.')
+    raise ValueError('Invalid method selection\n\tOptions = (SVM|GNB|BNB|MLP|DT|KNN)'+
+                       '\n\tUse -h or --help flag to show proper usage.')
+
+
+""" Cross validates on X and y using provided arguments, records results in CSV """
+def cross_validate(X, y, args):
+    print('\nBeginning cross-validation using {}'.format(args.m))
+    
+    np.random.seed(args.s) # Set the random seed
+    
+    # Generates the classifier object based on the given method
+    clf = create_classifier(args.m.lower())
+    # Performs cross-validation and gets the average classification accuracy score
+    score = np.average(cross_val_score(clf, X, y, cv=args.k)) * 100
+    
+    print('Average Accuracy = {}%'.format(score))
+    
+    # Save Result in CSV as: [Time, Method, InputFolder, NumFolds, RandomSeed, Score]
+    f = open('results.csv', 'a+')
+    writer = csv.writer(f)
+    writer.writerow([time.ctime(), args.m.lower(), args.i, args.k, args.s, score])   
+    f.close()
 
 
 """ Generates easily seperable sample data with given number of outliers """
 def gen_test_data(num_outliers=0):
     for i in range(100):
-        t = open('input/test/truthers/{}.txt'.format(i), 'w+')
-        b = open('input/test/bluffers/{}.txt'.format(i), 'w+')
-        # Outliers get the opposite values, should be classified incorrectly
-        # Technically not 'outliers' but go against the rest of the data        
+        t = open('input/test/truthers/{}.seq'.format(i), 'w+')
+        b = open('input/test/bluffers/{}.seq'.format(i), 'w+')
+        # Each data sequence is either '0 1 2' or '2 3 4' repeated 200 times
         if i in range(num_outliers):
-            for _ in range(200):
-                t.write('0\n1\n2\n')                          
-                b.write('2\n3\n4\n')
+            # Outliers get the reverse values, should be classified incorrectly
+            # Technically not 'outliers' but go against the rest of the data               
+            t.write(str(np.array([0,1,2] * 200))[1:-1])
+            b.write(str(np.array([2,3,4] * 200))[1:-1])                                    
         else:
-            for _ in range(200):
-                b.write('0\n1\n2\n')
-                t.write('2\n3\n4\n')
+            b.write(str(np.array([0,1,2] * 200))[1:-1])
+            t.write(str(np.array([2,3,4] * 200))[1:-1])  
         t.close()
         b.close()
 
 
-""" Main Method - Parse args, perform cross-validation, record results """
+""" Main Method - Parse args, read data, call cross_validate function """
 if __name__ == '__main__':
     #gen_test_data(num_outliers=10) # Generates sample data for testing
     
@@ -122,6 +143,9 @@ if __name__ == '__main__':
     
     Usage: 
        python3 clf.py [-m Method] [-i InputFolder] [-k NumberFolds] [-d NumberClusters] [-s RandomSeed]
+            Run with specified method and parameters.
+       python3 clf.py --all_methods [-i InputFolder] [-k NumberFolds] [-d NumberClusters] [-s RandomSeed]
+            Run with each available method and specified parameters.
     
     Valid Method Options:
        SVM - uses sklearn.svm.SVC as the classifier      (Support Vector Machine Classifier)
@@ -136,8 +160,8 @@ if __name__ == '__main__':
     
     """
     parser = argparse.ArgumentParser(description=help,formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-m', metavar='Method', default='svm', type=str,
-                        help='The method of classification used, options=(SVM|GNB|BNB|MLP)')
+    parser.add_argument('-m', metavar='Method', default='SVM', type=str,
+                        help='The method of classification used, options=(SVM|GNB|BNB|MLP|DT|KNN)')
     parser.add_argument('-i', metavar='InputFolder', type=str, default='test', 
                         help='Input Folder (must contain truthers/bluffers subfolders)')
     parser.add_argument('-k', metavar='NumberFolds', type=int, default=5,
@@ -145,32 +169,26 @@ if __name__ == '__main__':
     parser.add_argument('-s', metavar='RandomSeed', help='Random Seed', type=int, default=101)
     parser.add_argument('-d', metavar='NumberClusters', type=int, default=5,
                         help='Number of clusters used in cluster sequences')
+    parser.add_argument('--all_methods', action='store_true')
     args = parser.parse_args()
     
-    print('Method:      ' + args.m)
     print('InputFolder: ' + args.i)
     print('NumFolds:    ' + str(args.k))
     print('NumClusters: ' + str(args.d))
     print('RandomSeed:  ' + str(args.s))
-    
-    print('\nBeginning cross-validation...\n')
-    
+                
     # Loads the data from the infolder (X = cluster distribution | y = 0/1 for T/B)
     X, y = load_data(args.i, args.d)
-    # Generates the classifier object based on the given method
-    clf = create_classifier(args.m.lower(), args.s)
-    # Performs crossvalidation and gets the average classification accuracy score
-    score = np.average(cross_val_score(clf, X, y, cv=args.k)) * 100
     
-    
-    print('Average Accuracy = {}%'.format(score))
-    
-    
-    # Save Result as: [Time, Method, InputFolder, NumFolds, RandomSeed, Score]
-    f = open('results.csv', 'a+')
-    writer = csv.writer(f)
-    writer.writerow([time.ctime(), args.m.lower(), args.i, args.k, args.s, score])   
-    f.close()
+    # Cross-validate with given method, or try each method if --all_methods flag is set
+    if args.all_methods:
+        print('Method:      all_methods')                    
+        for m in ('SVM','GNB','BNB','MLP','DT','KNN'):
+            args.m = m
+            cross_validate(X, y, args)
+    else:
+        print('Method:      ' + args.m)        
+        cross_validate(X, y, args)
     
     print('\nProgram Complete.')
     
